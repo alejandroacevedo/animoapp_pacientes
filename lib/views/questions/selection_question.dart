@@ -37,9 +37,12 @@ class _SelectQuestionPageState extends State<SelectQuestionPage> {
   List<Widget> options = <Widget>[];
   Object? next;
   Object? previous;
+  bool finish = false;
+  String optionSelected = "";
 
   @override
   void initState() {
+    super.initState();
     storage = widget.storage;
     dynamic questions = jsonDecode(storage.getItem("questions"));
     //print(storage.getItem("object"));
@@ -62,7 +65,8 @@ class _SelectQuestionPageState extends State<SelectQuestionPage> {
         'next': this.questions[nextQuestionIndex]['question']
       });
       storage.setItem("object", newStatusObject);
-      print(newStatusObject.toJson());
+    } else {
+      setState(() => finish = true);
     }
     // Construir el objeto para la siguiente pregunta
     //if (statusObject?.next != null) {
@@ -75,11 +79,24 @@ class _SelectQuestionPageState extends State<SelectQuestionPage> {
     //setState(() => this.questions = questions);
     //setState(() => this.responses = responses);
     //setState(() => this.statusObject = statusObject);
-
-    super.initState();
   }
 
-  goNext({context}) {
+  goNext({context, required String option}) {
+    double factor = 1 / questions.length;
+    double progress = widget.progressLine + factor;
+    setState(() => optionSelected = option);
+    print(option);
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => SelectQuestionPage(
+                progressLine: progress,
+                questionnaireName: widget.questionnaireName,
+                storage: widget.storage,
+                options: widget.options)));
+  }
+
+  save({context}) {
     double factor = 1 / questions.length;
     double progress = widget.progressLine + factor;
     Navigator.push(
@@ -92,13 +109,43 @@ class _SelectQuestionPageState extends State<SelectQuestionPage> {
                 options: widget.options)));
   }
 
+
+
+  Widget nextButton({required bool finish}) {
+    return SizedBox(
+        child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: ElevatedButton(
+              onPressed: () => finish
+                  ? save(context: context)
+                  : goNext(context: context, option: "ASD"),
+              child: Text(finish ? "Finalizar" : "Siguiente")),
+        )
+      ],
+    ));
+  }
+
   Widget columnOptions({required List<String> options, required context}) {
     List<Widget> lst = <Widget>[];
     for (String option in options) {
       lst.add(FractionallySizedBox(
           widthFactor: 0.6,
           child: ElevatedButton(
-              onPressed: () => goNext(context: context), child: Text(option))));
+            onPressed: () => setState(() => optionSelected = option),
+            child: Row(
+              children: [
+                AnimatedOpacity(
+                    opacity: optionSelected == option ? 1.0 : 0.0,
+                    duration: const Duration(seconds: 1),
+                    child: const Icon(Icons.check),
+                onEnd: () => goNext(context: context, option: option)),
+                Text(option)
+              ],
+            ),
+          )));
       lst.add(const SizedBox(height: 10));
     }
     return Column(children: lst);
@@ -141,18 +188,7 @@ class _SelectQuestionPageState extends State<SelectQuestionPage> {
           Expanded(
               child: columnOptions(options: widget.options, context: context)),
           const SizedBox(height: 20),
-          SizedBox(
-              child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(right: 20),
-                child: ElevatedButton(
-                    onPressed: () => goNext(context: context),
-                    child: Text("Siguiente")),
-              )
-            ],
-          )),
+          nextButton(finish: finish)
         ],
       ),
     );
